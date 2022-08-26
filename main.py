@@ -13,7 +13,6 @@ from utils import randomChoice, timeSince
 from torch.utils.data import random_split
 
 from data import Data
-from data import title_dataset
 import model
 
 LOG_WANDB = False
@@ -42,13 +41,13 @@ if LOG_WANDB:
 # SETUP
 if not SEED:
     SEED = random.randrange(10000)
+    print(f"No seed set. Current seed: {SEED}\n")
 torch.manual_seed(SEED)
 
-data = Data()
-data.load(DATA_LOCATION)
 
-tdata = title_dataset("data/titles_cleaned.txt")
-train, test = random_split(tdata, [int(len(tdata) * 0.8), int(len(tdata) * 0.2)])
+data = Data("data/titles_cleaned.txt")
+train_data, test_data = random_split(data, [int(len(data) * 0.8), int(len(data) * 0.2)])
+
 num_tokens = data.num_words
 model = model.RNN(num_tokens, HIDDEN_SIZE, num_tokens, num_layers=None, num_categories=data.num_categories)
 # TODO: look into num_layers
@@ -65,7 +64,7 @@ def evaluate(data_source):
             pass
         for i, (category_tensor, input_line_tensor, target_line_tensor) in enumerate(data_source):
             output, hidden = model(category_tensor, input_line_tensor[i], hidden) #  TODO: Should ilt be accessed by index here?
-            #hidden = repackage_hidden(hidden)??
+            #TODO hidden = repackage_hidden(hidden)??
             total_loss += len(input_line_tensor) * CRITERION(output, target_line_tensor).item()
     return total_loss / (len(data_source) - 1 )
 
@@ -109,10 +108,10 @@ for epoch in range(1, N_EPOCHS+1):
     total_loss = 0.
     start = time.time()
 
-    for i, example in enumerate(tdata):
+    for i, example in enumerate(data):
             
         output, train_loss = train(model, *example)
-        eval_loss = evaluate(data.dev) # TODO: Change
+        #eval_loss = evaluate(test_data) # TODO: Change
 
         total_loss += train_loss
 
@@ -125,3 +124,8 @@ for epoch in range(1, N_EPOCHS+1):
                         "eval_loss": eval_loss})
             wandb.watch(model)
 
+
+# TODO: Next steps:
+# Fix eval code
+# Implement model saving / loading
+# Get epochs correct -> Make it keyboard cancellable
