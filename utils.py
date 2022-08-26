@@ -42,7 +42,7 @@ def timeSince(since):
     s -= m * 60
     return '%dm %ds' % (m, s)
 
-def split_dset(dset, train, dev, test=None):
+def split_dset(dset, train, dev, test=0):
     # TODO: Included in data class now, can be removed soon.
     """
     Takes percentage that each split is supposed to be at and splits the dataset accodringly.

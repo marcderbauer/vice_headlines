@@ -10,7 +10,7 @@ DROPOUT = 0.5
 
 class RNN(nn.Module):
 
-    def __init__(self, input_size, hidden_size, output_size, num_layers, dropout=DROPOUT) -> None:
+    def __init__(self, input_size, hidden_size, output_size, num_layers, num_categories, dropout=DROPOUT) -> None:
         super(RNN, self).__init__()
     
         #self.num_tokens = num_tokens
@@ -18,9 +18,10 @@ class RNN(nn.Module):
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.num_layers = num_layers
+        self.num_categories = num_categories
 
-        self.i2h = nn.Linear(self.n_categories + input_size + hidden_size, hidden_size) # TODO: Could add another hidden layer h2h here
-        self.i2o = nn.Linear(self.n_categories + input_size + hidden_size, output_size)
+        self.i2h = nn.Linear(self.num_categories + input_size + hidden_size, hidden_size) # TODO: Could add another hidden layer h2h here
+        self.i2o = nn.Linear(self.num_categories + input_size + hidden_size, output_size)
         self.o2o = nn.Linear(hidden_size + output_size, output_size)
         self.softmax = nn.LogSoftmax(dim=1)
         self.dropout = nn.Dropout(dropout)
