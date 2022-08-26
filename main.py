@@ -10,8 +10,10 @@ import torch
 import torch.nn as nn
 import random
 from utils import randomChoice, timeSince
+from torch.utils.data import random_split
 
 from data import Data
+from data import title_dataset
 import model
 
 LOG_WANDB = False
@@ -44,43 +46,12 @@ torch.manual_seed(SEED)
 
 data = Data()
 data.load(DATA_LOCATION)
+
+tdata = title_dataset("data/titles_cleaned.txt")
+train, test = random_split(tdata, [int(len(tdata) * 0.8), int(len(tdata) * 0.2)])
 num_tokens = data.num_words
 model = model.RNN(num_tokens, HIDDEN_SIZE, num_tokens, num_layers=None, num_categories=data.num_categories)
 # TODO: look into num_layers
-
-
-# One-hot vector for category
-def categoryTensor(category):
-    li = data.all_categories.index(category)
-    tensor = torch.zeros(1, data.num_categories)
-    tensor[0][li] = 1
-    return tensor
-
-# One-hot matrix of first to last letters (not including EOS) for input
-def inputTensor(line):
-    # TODO: Adjust for words
-    tensor = torch.zeros(len(line), 1, num_tokens)
-    for li in range(len(line)): # TODO: This doesn't interpret words as single entities here, but instead iterates over their individual letters when generating
-        letter = line[li]
-        # TODO: This needs to be adjusted
-        tensor[li][0][data.all_words.index(letter)] = 1
-    return tensor
-
-# LongTensor of second letter to end (EOS) for target
-def targetTensor(line):
-    # TODO: Adjust for words
-    letter_indexes = [data.all_words.index(line[li]) for li in range(1, len(line))] # indexes of remaining letters in name (from 2nd letter onwards) + <EOS>
-    letter_indexes.append(num_tokens - 1) # EOS
-    return torch.LongTensor(letter_indexes)
-
-# Make category, input, and target tensors from a random category, line pair
-def randomTrainingExample():
-    category, line = data.randomTrainingPair()
-    category_tensor = categoryTensor(category)
-    input_line_tensor = inputTensor(line)
-    target_line_tensor = targetTensor(line)
-    return category_tensor, input_line_tensor, target_line_tensor
-
 
 
 # TRAINING
@@ -90,13 +61,12 @@ def evaluate(data_source):
     #num_tokens = data.num_words #do I really need to write this again?
     hidden = model.initHidden()
     with torch.no_grad():
-        for i in range(0, len(data_source)): # Iterate over entire eval set?
-            category_tensor, _ = data.randomTrainingPair() # TODO: THIS NEEDS TO BE CHANGED, WORKS ONLY CAUSE THERE'S ONLY ONE CATEGORY RN
-            input_line_tensor = inputTensor(data_source[i])
-            target_line_tensor = targetTensor(data_source[i])
+        for i in range(0, len(data_source)): # Iterate over entire eval set? # also should this be -1?
+            pass
+        for i, (category_tensor, input_line_tensor, target_line_tensor) in enumerate(data_source):
             output, hidden = model(category_tensor, input_line_tensor[i], hidden) #  TODO: Should ilt be accessed by index here?
             #hidden = repackage_hidden(hidden)??
-        total_loss += len(input_line_tensor) * CRITERION(output, target_line_tensor).item()
+            total_loss += len(input_line_tensor) * CRITERION(output, target_line_tensor).item()
     return total_loss / (len(data_source) - 1 )
 
 def train(model, category_tensor, input_line_tensor, target_line_tensor):
@@ -129,6 +99,7 @@ def train(model, category_tensor, input_line_tensor, target_line_tensor):
 
 # TODO: surround by try/except
 # ITERATE OVER EPOCHS
+
 for epoch in range(1, N_EPOCHS+1):
     # Is term epoch here accurate? Shouldn't an epoch be the entire dataset once?
     # Currently it's a fixed amount of iterations
@@ -138,18 +109,19 @@ for epoch in range(1, N_EPOCHS+1):
     total_loss = 0.
     start = time.time()
 
-    example = randomTrainingExample()
-    output, train_loss = train(model, *example)
-    eval_loss = evaluate(data.dev)
+    for i, example in enumerate(tdata):
+            
+        output, train_loss = train(model, *example)
+        eval_loss = evaluate(data.dev) # TODO: Change
 
-    total_loss += train_loss
+        total_loss += train_loss
 
-    if epoch % PRINT_EVERY == 0:
-        print('%s (%d %d%%) %.4f' % (timeSince(start), epoch, epoch / N_EPOCHS * 100, loss))
-    
-    # w and b
-    if LOG_WANDB:
-        wandb.log( {"train_loss": train_loss,
-                    "eval_loss": eval_loss})
-        wandb.watch(model)
+        if epoch % PRINT_EVERY == 0:
+            print('%s (%d %d%%) %.4f' % (timeSince(start), epoch, epoch / N_EPOCHS * 100, loss))
+        
+        # w and b
+        if LOG_WANDB:
+            wandb.log( {"train_loss": train_loss,
+                        "eval_loss": eval_loss})
+            wandb.watch(model)
 
