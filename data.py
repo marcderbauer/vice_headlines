@@ -3,6 +3,7 @@ import os
 import torch
 from torch.utils.data import DataLoader, Dataset
 from utils import findFiles, randomChoice, readLines, split_dset
+import string
 
 TRAIN = 0.8
 DEV = 0.2
@@ -147,37 +148,40 @@ class title_dataset(Dataset):
                 #counter += 1
 
         self.all_words = list(set(words))
-        #self.num_words = len(self.all_words) + 1 # for <EOS>
+        self.num_words = len(self.all_words) + 1 # for <EOS>
         self.num_categories = len(self.all_categories)
        # self.lines_category = self._invert_dict(self.category_lines_all)
     
     def __len__(self):
-        return len(self.all_words) + 1 # for <EOS>
+        return len(self.data_lines) #len(self.all_words) + 1 # for <EOS> #len(self.data_lines)
 
     
     def __getitem__(self, index):#-> T_co:
         #return self.all_words[index]
         # I think what I'm trying to do here is the randomTrainingExample,
         # but instead of being random, it's based on an index
-
         item = self.data_lines[index]
         category_tensor = self.categoryTensor(item.category)
         input_line_tensor = self.inputTensor(item.content)
         target_line_tensor = self.targetTensor(item.content)
 
-        return category_tensor, input_line_tensor, target_line_tensor
+        return (
+            category_tensor, 
+            input_line_tensor, 
+            target_line_tensor
+        )
     
 
     def categoryTensor(self, category):
-        li = data.all_categories.index(category)
-        tensor = torch.zeros(1, data.num_categories)
+        li = self.all_categories.index(category)
+        tensor = torch.zeros(1, self.num_categories)
         tensor[0][li] = 1
         return tensor
 
     # One-hot matrix of first to last letters (not including EOS) for input
     def inputTensor(self, line):
         # TODO: Adjust for words
-        tensor = torch.zeros(len(line), 1, len(self))
+        tensor = torch.zeros(len(line), 1, self.num_words)
         for li in range(len(line)): # TODO: This doesn't interpret words as single entities here, but instead iterates over their individual letters when generating
             letter = line[li]
             # TODO: This needs to be adjusted
@@ -187,18 +191,21 @@ class title_dataset(Dataset):
     # LongTensor of second letter to end (EOS) for target
     def targetTensor(self, line):
         # TODO: Adjust for words
-        letter_indexes = [data.all_words.index(line[li]) for li in range(1, len(line))] # indexes of remaining letters in name (from 2nd letter onwards) + <EOS>
+        letter_indexes = [self.all_words.index(line[li]) for li in range(1, len(line))] # indexes of remaining letters in name (from 2nd letter onwards) + <EOS>
         letter_indexes.append(len(self) - 1) # EOS
         return torch.LongTensor(letter_indexes)
 
-    # Make category, input, and target tensors from a random category, line pair
-    def randomTrainingExample(self):
-        category, line = self.randomTrainingPair()
-        category_tensor = self.categoryTensor(category)
-        input_line_tensor = self.inputTensor(line)
-        target_line_tensor = self.targetTensor(line)
-        return category_tensor, input_line_tensor, target_line_tensor
-
 
 if __name__ == "__main__":
-    data = title_dataset("data/names/*.txt")
+    dataset = title_dataset("data/titles_cleaned.txt")#names/*.txt")
+    dl = DataLoader(dataset=dataset, batch_size=1, shuffle=True, num_workers=0)
+    # TODO: Due to unequal line length, batches don't work.
+    #       To solve this we would need some padding / truncation
+    # print(dataset.__getitem__(200))
+    # print(dataset.__len__())
+
+    for batch in dl:
+        pass
+    dataiter = iter(dl)
+    data = dataiter.next() # TODO
+    category, input_v, target = data
