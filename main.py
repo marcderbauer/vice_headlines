@@ -15,7 +15,7 @@ from torch.utils.data import random_split
 from data import Data
 import model
 
-LOG_WANDB = False
+LOG_WANDB = True
 
 DATA_LOCATION = "data/titles_cleaned.txt"
 MODELS_DIR = "models"
@@ -29,7 +29,7 @@ LEARNING_RATE = 0.0005 # in wlm github it's 20??
 N_EPOCHS = 1000
 MAX_LENGTH = 20
 HIDDEN_SIZE = 128
-SAVE_EVERY = 5000
+SAVE_EVERY = 10
 CRITERION = nn.NLLLoss()
 CLIP = 0.25
 
@@ -128,25 +128,27 @@ try:
             total_train_loss += train_loss
             total_eval_loss += eval_loss
 
-            if epoch % SAVE_EVERY == 0:
-                print('%s (%d %d%%) %.4f' % (timeSince(start), epoch, epoch / N_EPOCHS * 100, train_loss))
-                with open(os.path.join(SAVE_DIR, f"{epoch}.pt"), 'wb') as f:
-                    torch.save(model, f)
-            
-            # w and b
-            if LOG_WANDB:
-                wandb.log( {"train_loss": train_loss,
-                            "eval_loss": eval_loss})
-                wandb.watch(model)
 
-            if not best_eval_loss or eval_loss < best_eval_loss:
-                with open(os.path.join(SAVE_DIR, "best.pt"), 'wb') as f:
-                    torch.save(model, f)
-                best_val_loss = eval_loss
-            else:
-                pass
-                # Anneal the learning rate if no improvement has been seen in the validation dataset.
-                #LEARNING_RATE /= 4.0
+        if epoch % SAVE_EVERY == 0:
+            print('%s (%d %d%%) %.4f' % (timeSince(start), epoch, epoch / N_EPOCHS * 100, train_loss))
+            with open(os.path.join(SAVE_DIR, f"{epoch}.pt"), 'wb') as f:
+                torch.save(model, f)
+        
+        # w and b
+        if LOG_WANDB:
+            wandb.log( {"train_loss": train_loss,
+                        "eval_loss": eval_loss})
+            wandb.watch(model)
+
+        # Save best model
+        if not best_eval_loss or eval_loss < best_eval_loss:
+            with open(os.path.join(SAVE_DIR, "best.pt"), 'wb') as f:
+                torch.save(model, f)
+            best_val_loss = eval_loss
+        else:
+            pass
+            # Anneal the learning rate if no improvement has been seen in the validation dataset.
+            #LEARNING_RATE /= 4.0
 
 except KeyboardInterrupt:
     print('-' * 89)
