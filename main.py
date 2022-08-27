@@ -18,13 +18,18 @@ import model
 LOG_WANDB = False
 
 DATA_LOCATION = "data/titles_cleaned.txt"
+MODELS_DIR = "models"
+SAVE_DIR = os.path.join(MODELS_DIR, os.path.basename(DATA_LOCATION).split(".")[0])
+if not os.path.exists(SAVE_DIR):
+    os.mkdir(SAVE_DIR)
+
 SEED = None
 
 LEARNING_RATE = 0.0005 # in wlm github it's 20??
 N_EPOCHS = 1000
 MAX_LENGTH = 20
 HIDDEN_SIZE = 128
-PRINT_EVERY = 5000
+SAVE_EVERY = 5000
 CRITERION = nn.NLLLoss()
 CLIP = 0.25
 
@@ -102,38 +107,47 @@ def train(model, category_tensor, input_line_tensor, target_line_tensor):
     
     return output, loss.item() / input_line_tensor.size(0)
 
-# if name is main?
 
-# TODO: surround by try/except
-# ITERATE OVER EPOCHS
+# At any point you can hit Ctrl + C to break out of training early.
+try:
+    best_eval_loss = None
+    for epoch in range(1, N_EPOCHS+1):
+        # Is term epoch here accurate? Shouldn't an epoch be the entire dataset once?
+        # Currently it's a fixed amount of iterations
 
-for epoch in range(1, N_EPOCHS+1):
-    # Is term epoch here accurate? Shouldn't an epoch be the entire dataset once?
-    # Currently it's a fixed amount of iterations
+        # Loss is reset for every training step. Could also declare within train / eval functions
+        total_train_loss = 0.
+        total_eval_loss = 0.
+        start = time.time()
 
-    # Loss is reset for every training step. Could also declare within train / eval functions
-    all_losses = []
-    total_loss = 0.
-    start = time.time()
+        for i, example in enumerate(data):
+                
+            output, train_loss = train(model, *example)
+            eval_loss = evaluate(eval_iter)
 
-    for i, example in enumerate(data):
+            total_train_loss += train_loss
+            total_eval_loss += eval_loss
+
+            if epoch % SAVE_EVERY == 0:
+                print('%s (%d %d%%) %.4f' % (timeSince(start), epoch, epoch / N_EPOCHS * 100, train_loss))
+                with open(os.path.join(SAVE_DIR, f"{epoch}.pt"), 'wb') as f:
+                    torch.save(model, f)
             
-        output, train_loss = train(model, *example)
-        eval_loss = evaluate(eval_iter)
+            # w and b
+            if LOG_WANDB:
+                wandb.log( {"train_loss": train_loss,
+                            "eval_loss": eval_loss})
+                wandb.watch(model)
 
-        total_loss += train_loss
+            if not best_eval_loss or eval_loss < best_eval_loss:
+                with open(os.path.join(SAVE_DIR, "best.pt"), 'wb') as f:
+                    torch.save(model, f)
+                best_val_loss = eval_loss
+            else:
+                pass
+                # Anneal the learning rate if no improvement has been seen in the validation dataset.
+                #LEARNING_RATE /= 4.0
 
-        if epoch % PRINT_EVERY == 0:
-            print('%s (%d %d%%) %.4f' % (timeSince(start), epoch, epoch / N_EPOCHS * 100, train_loss))
-        
-        # w and b
-        if LOG_WANDB:
-            wandb.log( {"train_loss": train_loss,
-                        "eval_loss": eval_loss})
-            wandb.watch(model)
-
-
-# TODO: Next steps:
-# Fix eval code
-# Implement model saving / loading
-# Get epochs correct -> Make it keyboard cancellable
+except KeyboardInterrupt:
+    print('-' * 89)
+    print('Exiting from training early')

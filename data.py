@@ -88,8 +88,10 @@ if __name__ == "__main__":
     # print(dataset.__len__())
 
     #TODO: This fails still
-    for batch in dl:
-        pass
+    # for batch in dl:
+    #     pass
     dataiter = iter(dl)
     data = dataiter.next() # TODO
     category, input_v, target = data
+
+    # dataiter._dataset.data_lines[dataiter._sampler_iter.__next__()]
