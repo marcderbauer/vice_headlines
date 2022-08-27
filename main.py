@@ -1,7 +1,6 @@
 # Train and validation go in here, making use of the data and model
 # Could implement batching data here
 
-from pickle import FALSE, TRUE
 import time
 from numpy import CLIP
 import wandb
@@ -15,24 +14,25 @@ from torch.utils.data import random_split
 from data import Data
 import model
 
-LOG_WANDB = True
+LOG_WANDB = False
 
-DATA_LOCATION = "data/titles_cleaned.txt"
+DATA_LOCATION = "data/overfit_char.txt"#data/names/*.txt"
 MODELS_DIR = "models"
-SAVE_DIR = os.path.join(MODELS_DIR, os.path.basename(DATA_LOCATION).split(".")[0])
+SAVE_DIR = os.path.join(MODELS_DIR, os.path.basename(DATA_LOCATION).split(".")[0]) #"models/names"
 if not os.path.exists(SAVE_DIR):
     os.mkdir(SAVE_DIR)
 
 SEED = None
 
 LEARNING_RATE = 0.0005 # in wlm github it's 20??
-N_EPOCHS = 1000             # Number of epochs
+N_EPOCHS = 100000           # Number of epochs
 MAX_LENGTH = 20             # Max input length
 HIDDEN_SIZE = 128           # Size of hidden Layer
 SAVE_EVERY = 10             # Save every X epochs (aside from best model)
-LOG_ITER = 50               # Log every X steps
+LOG_ITER = 500              # Log every X steps
 CRITERION = nn.NLLLoss()    # Loss function used
 CLIP = 0.25                 # Gradient clipping
+LEVEL = "char"
 
 
 if LOG_WANDB:
@@ -51,7 +51,7 @@ if not SEED:
 torch.manual_seed(SEED)
 
 
-data = Data(DATA_LOCATION)
+data = Data(DATA_LOCATION, level=LEVEL)
 train_data, test_data = random_split(data, [round(len(data) * 0.8), round(len(data) * 0.2)])
 
 num_tokens = data.num_words
@@ -92,7 +92,7 @@ def train(model, category_tensor, input_line_tensor, target_line_tensor):
 
     for i in range(input_line_tensor.size(0)):
         output, hidden = model(category_tensor, input_line_tensor[i], hidden)
-        l = CRITERION(output, target_line_tensor[i])
+        l = CRITERION(output, target_line_tensor[i]) # Fails when i = 2 -> value returned is 20073 # i=0: 31 i=1 41
         loss += l
 
     loss.backward()
@@ -120,10 +120,11 @@ def main():
             epoch_train_loss = 0.
             epoch_eval_loss = 0.
 
-            for i, example in enumerate(data):
+            for i, example in enumerate(train_data):
                     
                 output, train_loss = train(model, *example)
-                eval_loss = evaluate(test_data)
+                #eval_loss = evaluate(test_data)
+                eval_loss = 0
 
                 total_train_loss += train_loss
                 total_eval_loss += eval_loss
@@ -134,8 +135,11 @@ def main():
                     wandb.log( {"train_loss": train_loss,
                                 "eval_loss": eval_loss})
                     wandb.watch(model)
+            
+            train_loss = epoch_train_loss / len(train_data)
+            eval_loss = epoch_eval_loss / len(train_data)
 
-
+            # TODO: Change to save and print every epoch, could print every 1k iterations or whatever
             if epoch % SAVE_EVERY == 0:
                 print('%s (%d %d%%) train: %.4f   eval: %.4f' % (timeSince(start), epoch, epoch / N_EPOCHS * 100, train_loss, eval_loss))
                 with open(os.path.join(SAVE_DIR, f"{epoch}.pt"), 'wb') as f:
@@ -151,11 +155,11 @@ def main():
             if not best_eval_loss or eval_loss < best_eval_loss:
                 with open(os.path.join(SAVE_DIR, "best.pt"), 'wb') as f:
                     torch.save(model, f)
-                best_val_loss = eval_loss
+                best_eval_loss = eval_loss
             else:
                 pass
                 # Anneal the learning rate if no improvement has been seen in the validation dataset.
-                #LEARNING_RATE /= 4.0
+                LEARNING_RATE /= 4.0
 
     except KeyboardInterrupt:
         print('-' * 89)
