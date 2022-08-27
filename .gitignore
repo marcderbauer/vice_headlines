@@ -1,3 +1,4 @@
+__pycache__/
 .env
 .venv
 .vscode
@@ -5,3 +6,4 @@ client_secret*.json
 data
 RNN/__pycache__/
 wandb/
+models/

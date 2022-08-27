@@ -14,7 +14,7 @@ for line in lines:
     if detect(line) == "en":
         cleaned = ''.join(e for e in line if e in ALL_LETTERS)
         cleaned = re.sub(", ", " , ", cleaned)
-        cleaned = re.sub(r"\(", r" ( ", cleaned)
+        cleaned = re.sub(r"\(", r" ( ", cleaned) # TODO: Could combine this and the next one and replace with $1
         cleaned = re.sub(r"\)", r" ) ", cleaned)
         cleaned_data.append(cleaned)
 
