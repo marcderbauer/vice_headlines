@@ -52,21 +52,29 @@ num_tokens = data.num_words
 model = model.RNN(num_tokens, HIDDEN_SIZE, num_tokens, num_layers=None, num_categories=data.num_categories)
 # TODO: look into num_layers
 
+# Iterator over eval data. Used to take a single example for validation each iteration
+eval_iter = iter(test_data)
+
 
 # TRAINING
 def evaluate(data_source):
     model.eval()
-    total_loss = 0.
-    #num_tokens = data.num_words #do I really need to write this again?
+    loss = 0. 
     hidden = model.initHidden()
-    with torch.no_grad():
-        for i in range(0, len(data_source)): # Iterate over entire eval set? # also should this be -1?
-            pass
-        for i, (category_tensor, input_line_tensor, target_line_tensor) in enumerate(data_source):
-            output, hidden = model(category_tensor, input_line_tensor[i], hidden) #  TODO: Should ilt be accessed by index here?
-            #TODO hidden = repackage_hidden(hidden)??
-            total_loss += len(input_line_tensor) * CRITERION(output, target_line_tensor).item()
-    return total_loss / (len(data_source) - 1 )
+    with torch.no_grad(): 
+
+        category_tensor, input_line_tensor, target_line_tensor = data_source.__next__() #TODO data_source.next() is broken, this is a quickfix
+
+        target_line_tensor.unsqueeze_(-1)
+
+        for i in range(input_line_tensor.size(0)):
+            output, hidden = model(category_tensor, input_line_tensor[i], hidden)
+            l = CRITERION(output, target_line_tensor[i])
+            loss += l
+        
+        return loss.item() / input_line_tensor.size(0)
+
+
 
 def train(model, category_tensor, input_line_tensor, target_line_tensor):
     """
@@ -111,12 +119,12 @@ for epoch in range(1, N_EPOCHS+1):
     for i, example in enumerate(data):
             
         output, train_loss = train(model, *example)
-        #eval_loss = evaluate(test_data) # TODO: Change
+        eval_loss = evaluate(eval_iter)
 
         total_loss += train_loss
 
         if epoch % PRINT_EVERY == 0:
-            print('%s (%d %d%%) %.4f' % (timeSince(start), epoch, epoch / N_EPOCHS * 100, loss))
+            print('%s (%d %d%%) %.4f' % (timeSince(start), epoch, epoch / N_EPOCHS * 100, train_loss))
         
         # w and b
         if LOG_WANDB:
