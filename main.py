@@ -17,7 +17,7 @@ from utils import randomChoice, timeSince
 from torch.utils.data import random_split
 
 from data import Data
-import model
+from model import RNN
 
 # -----------------------------------------------------------------------------------------#
 #                                           PARAMS                                         #
@@ -35,7 +35,6 @@ LOG_ITER = 500              # Log every X steps
 # Model Parameters
 LEARNING_RATE = 0.0005      # in wlm github it's 20??
 N_EPOCHS = 100000           # Number of epochs
-MAX_LENGTH = 20             # Max input length
 HIDDEN_SIZE = 128           # Size of hidden Layer
 CRITERION = nn.NLLLoss()    # Loss function used
 CLIP = 0.25                 # Gradient clipping
@@ -61,7 +60,7 @@ if not SEED:
 torch.manual_seed(SEED)
 
 # Create directory to save models in
-SAVE_DIR = os.path.join(MODELS_DIR, os.path.basename(DATA_LOCATION).split(".")[0]) #"models/names"
+SAVE_DIR = "models/names"#os.path.join(MODELS_DIR, os.path.basename(DATA_LOCATION).split(".")[0]) #
 if not os.path.exists(SAVE_DIR):
     os.mkdir(SAVE_DIR)
 
@@ -72,7 +71,7 @@ num_tokens = data.num_words
 
 # Load the model
 # TODO: look into num_layers
-model = model.RNN(num_tokens, HIDDEN_SIZE, num_tokens, num_layers=None, num_categories=data.num_categories)
+model = RNN(num_tokens, HIDDEN_SIZE, num_tokens, num_layers=None, num_categories=data.num_categories)
 
 
 
