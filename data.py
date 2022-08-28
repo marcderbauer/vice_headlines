@@ -18,9 +18,9 @@ class Data(Dataset):
         words = []
         #counter = 0
         self.data_lines = []
-        self.category_lines_all = {}
+        self.category_to_lines = {}
         self.all_categories = []
-        self.lines_category = {}
+        self.lines_to_category = {}
 
         for filename in findFiles(data_path):
             # For each file
@@ -32,7 +32,7 @@ class Data(Dataset):
                 lines = [line for line in readLines(filename)]
             else:
                 lines = [line.split() for line in readLines(filename)]
-            self.category_lines_all[category] = lines
+            self.category_to_lines[category] = lines
 
             for line in lines:
                 words = [*words, *line] # add all words in the line to words
