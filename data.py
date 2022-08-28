@@ -14,7 +14,7 @@ class data_line():
         self.category = category
 
 class Data(Dataset):
-    def __init__(self, data_path) -> None:
+    def __init__(self, data_path, level="word") -> None:
         words = []
         #counter = 0
         self.data_lines = []
@@ -28,7 +28,10 @@ class Data(Dataset):
             self.all_categories.append(category)
 
             # Read lines
-            lines = [line.split() for line in readLines(filename)]
+            if level=="char":
+                lines = [line for line in readLines(filename)]
+            else:
+                lines = [line.split() for line in readLines(filename)]
             self.category_lines_all[category] = lines
 
             for line in lines:
@@ -36,7 +39,7 @@ class Data(Dataset):
                 self.data_lines.append(data_line(line, category))
                 #counter += 1
 
-        self.all_words = list(set(words))
+        self.all_words = list(sorted(set(words)))
         self.num_words = len(self.all_words) + 1 # for <EOS>
         self.num_categories = len(self.all_categories)
        # self.lines_category = self._invert_dict(self.category_lines_all)
@@ -75,7 +78,7 @@ class Data(Dataset):
     # LongTensor of second letter to end (EOS) for target
     def targetTensor(self, line):
         letter_indexes = [self.all_words.index(line[li]) for li in range(1, len(line))] # indexes of remaining letters in name (from 2nd letter onwards) + <EOS>
-        letter_indexes.append(len(self) - 1) # EOS
+        letter_indexes.append(self.num_words - 1) # EOS
         return torch.LongTensor(letter_indexes)
 
 
