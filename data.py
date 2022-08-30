@@ -1,5 +1,6 @@
 # load, tokenize, etc
 import os
+from numpy import char
 import torch
 from torch.utils.data import DataLoader, Dataset
 from utils import findFiles, randomChoice, readLines, split_dset
@@ -8,13 +9,13 @@ import string
 TRAIN = 0.8
 DEV = 0.2
 TEST = 0.0
-class data_line():
+class DataLine():
     def __init__(self, content, category) -> None:
         self.content = content
         self.category = category
 
 class Data(Dataset):
-    def __init__(self, data_path, level="word") -> None:
+    def __init__(self, data_path, level) -> None:
         words = []
         #counter = 0
         self.data_lines = []
@@ -28,15 +29,17 @@ class Data(Dataset):
             self.all_categories.append(category)
 
             # Read lines
-            if level=="char":
+            if level == "char":
                 lines = [line for line in readLines(filename)]
-            else:
+            elif level == "word":
                 lines = [line.split() for line in readLines(filename)]
+            else:
+                raise("Please select the correct level to operate on. Either 'char' or 'word'.")
             self.category_to_lines[category] = lines
 
             for line in lines:
                 words = [*words, *line] # add all words in the line to words
-                self.data_lines.append(data_line(line, category))
+                self.data_lines.append(DataLine(line, category))
                 #counter += 1
 
         self.all_words = list(sorted(set(words)))
@@ -83,7 +86,8 @@ class Data(Dataset):
 
 
 if __name__ == "__main__":
-    dataset = Data("data/titles_cleaned.txt")#names/*.txt")
+    dataset = Data("data/names/*.txt", level="char")#names/*.txt")
+    dataset.targetTensor("Greensmith")
     dl = DataLoader(dataset=dataset, batch_size=None, shuffle=True, num_workers=0)
     # TODO: Due to unequal line length, batches don't work.
     #       To solve this we would need some padding / truncation
