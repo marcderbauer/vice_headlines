@@ -15,27 +15,28 @@ import torch.nn as nn
 import random
 from utils import randomChoice, timeSince
 from torch.utils.data import random_split
+from torch.utils.data import DataLoader
+from shutil import rmtree
 
 from data import Data
-import model
+from model import RNN
 
 # -----------------------------------------------------------------------------------------#
 #                                           PARAMS                                         #
 # -----------------------------------------------------------------------------------------#
 
 # General Parameters
-DATA_LOCATION = "data/names/*.txt" # "data/overfit_char.txt"
+DATA_LOCATION = "data/titles_cleaned.txt"#test/file*.txt" # "data/overfit_char.txt"
 MODELS_DIR = "models"
-LEVEL = "char"              # whether the model operates at a "char" or "word" level
+LEVEL = "word"              # whether the model operates at a "char" or "word" level
 LOG_WANDB = True
 SEED = None
 SAVE_EVERY = 1              # Save every X epochs (aside from best model)
-LOG_ITER = 500              # Log every X steps
+LOG_ITER = 50              # Log every X steps
 
 # Model Parameters
 LEARNING_RATE = 0.0005      # in wlm github it's 20??
-N_EPOCHS = 100000           # Number of epochs
-MAX_LENGTH = 20             # Max input length
+N_EPOCHS = 100              # Number of epochs
 HIDDEN_SIZE = 128           # Size of hidden Layer
 CRITERION = nn.NLLLoss()    # Loss function used
 CLIP = 0.25                 # Gradient clipping
@@ -61,18 +62,25 @@ if not SEED:
 torch.manual_seed(SEED)
 
 # Create directory to save models in
-SAVE_DIR = os.path.join(MODELS_DIR, os.path.basename(DATA_LOCATION).split(".")[0]) #"models/names"
-if not os.path.exists(SAVE_DIR):
-    os.mkdir(SAVE_DIR)
+SAVE_DIR = os.path.join(MODELS_DIR, os.path.basename(DATA_LOCATION).split(".")[0]) # "models/names"#
+if os.path.exists(SAVE_DIR):
+    rmtree(SAVE_DIR)
+os.mkdir(SAVE_DIR)
 
 # Load data and split into train and test
 data = Data(DATA_LOCATION, level=LEVEL)
 train_data, test_data = random_split(data, [round(len(data) * 0.8), round(len(data) * 0.2)])
+#train_data = data
+#test_data = data
+train_dl = DataLoader(train_data, batch_size=None, shuffle=True)
+
+test_dl = DataLoader(test_data, batch_size=None, shuffle=True)
+
 num_tokens = data.num_words
 
 # Load the model
 # TODO: look into num_layers
-model = model.RNN(num_tokens, HIDDEN_SIZE, num_tokens, num_layers=None, num_categories=data.num_categories)
+model = RNN(num_tokens, HIDDEN_SIZE, num_tokens, num_layers=None, num_categories=data.num_categories)
 
 
 
@@ -113,7 +121,7 @@ def train(model, category_tensor, input_line_tensor, target_line_tensor):
 
     loss.backward()
     # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
-    torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP)
+    #torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP)
     # TODO: look into this
 
     for p in model.parameters():
@@ -123,6 +131,7 @@ def train(model, category_tensor, input_line_tensor, target_line_tensor):
 
 
 def main():
+    lr = LEARNING_RATE
 # At any point you can hit Ctrl + C to break out of training early.
     try:
         best_eval_loss = None
@@ -133,11 +142,12 @@ def main():
         for epoch in range(1, N_EPOCHS+1):
             # Is term epoch here accurate? Shouldn't an epoch be the entire dataset once?
             # Currently it's a fixed amount of iterations
+            
             epoch_train_loss = 0.
             epoch_eval_loss = 0.
+            train_it = iter(train_dl)
 
-            for i, example in enumerate(train_data):
-                    
+            for i, example in enumerate(train_it):#enumerate(train_data):
                 _, train_loss = train(model, *example)
                 eval_loss = evaluate(test_data)
 
@@ -154,6 +164,7 @@ def main():
             train_loss = epoch_train_loss / len(train_data)
             eval_loss = epoch_eval_loss / len(train_data)
 
+            
 
             if epoch % SAVE_EVERY == 0:
                 print('%s (%d %d%%) train: %.4f   eval: %.4f' % (timeSince(start), epoch, epoch / N_EPOCHS * 100, train_loss, eval_loss))
@@ -172,9 +183,11 @@ def main():
                     torch.save(model, f)
                 best_eval_loss = eval_loss
             else:
-                pass
+                
                 # Anneal the learning rate if no improvement has been seen in the validation dataset.
-                LEARNING_RATE /= 4.0
+                #LEARNING_RATE /= 4.0
+                lr = lr / 4.0
+                #TODO: This one probably won't get updated (even without the continue statement)
 
     except KeyboardInterrupt:
         print('-' * 89)
