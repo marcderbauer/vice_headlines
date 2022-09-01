@@ -22,16 +22,18 @@ Iaaa
 
 MAX_LENGTH = 20 # TODO: How is this handled in wlm_generate.py?
 SEED = None
-CHECKPOINT = "models/names/best.pt"
-DATA_LOCATION = "data/names/*.txt" # "data/overfit_char.txt"
+CHECKPOINT = "models/titles_cleaned/best.pt"
+DATA_LOCATION = "data/titles_cleaned.txt" # "data/overfit_char.txt"
 CUDA = None
-LEVEL = "char"
+LEVEL = "word"
 
 # -----------------------------------------------------------------------------------------#
 #                                           SETUP                                          #
 # -----------------------------------------------------------------------------------------#
 
 # Generate and set seed
+# TODO: This shouldn't be set. The same input will always input the same result otherwise
+# Or at least if it's not set, then regenerate it everytime an inference is made
 if not SEED:
     SEED = random.randrange(100000)
     print(f"No seed set. Current seed: {SEED}\n")
@@ -50,13 +52,18 @@ with open(CHECKPOINT, 'rb') as f:
 model.eval()
 
 # Load data
-data = Data(DATA_LOCATION, level="char")
+data = Data(DATA_LOCATION, level=LEVEL)
 
 # Sample from a category and starting letter
 def sample(category, start_letter='A'):
     with torch.no_grad():  # no need to track history in sampling
         category_tensor = data.categoryTensor(category)
-        input = data.inputTensor(start_letter)
+        if LEVEL == "char":
+            input = data.inputTensor(start_letter)
+        elif LEVEL == "word":
+            input = data.inputTensor([start_letter])
+        else:
+            raise("set correct input level")
         hidden = model.initHidden()
 
         output_name = start_letter
@@ -70,7 +77,14 @@ def sample(category, start_letter='A'):
             else:
                 letter = data.all_words[topi]
                 output_name += letter
-            input = data.inputTensor(letter)
+
+            if LEVEL == "char":
+                input = data.inputTensor(letter)
+            elif LEVEL == "word":
+                input = data.inputTensor([letter])
+            else:
+                raise("set correct input level")
+                #input = data.inputTensor(letter)
 
         return output_name
 
@@ -79,10 +93,28 @@ def samples(category, start_letters='ABC'):
     for start_letter in start_letters:
         print(sample(category, start_letter))
 
-samples('Russian', 'RUS')
+samples("titles_cleaned",["I", "The", "Why"])
 
-samples('German', 'GER')
+# samples('Russian', 'RUS')
 
-samples('Spanish', 'SPA')
+# samples('German', 'JASJDKEP')
 
-samples('Chinese', 'CHI')
+# samples('Spanish', 'SPA')
+
+# samples('Chinese', 'CHI')
+
+
+
+# TODO: NEXT STEPS:
+# Use word embeddings
+# May be possible to use batches once I have the embeddings?
+#   => probably not directly, as the amount of words is still variable
+#   => Might still be worth looking into it. Could make things more consistent
+#   
+# Use an optimizer
+
+# Look into why the results are only "I" and "the"
+# e.g.:
+# Ithetheof
+# Thetheofthe
+# Whythetheof 

@@ -16,6 +16,7 @@ import random
 from utils import randomChoice, timeSince
 from torch.utils.data import random_split
 from torch.utils.data import DataLoader
+from shutil import rmtree
 
 from data import Data
 from model import RNN
@@ -25,17 +26,17 @@ from model import RNN
 # -----------------------------------------------------------------------------------------#
 
 # General Parameters
-DATA_LOCATION = "data/names/*.txt"#test/file*.txt" # "data/overfit_char.txt"
+DATA_LOCATION = "data/titles_cleaned.txt"#test/file*.txt" # "data/overfit_char.txt"
 MODELS_DIR = "models"
-LEVEL = "char"              # whether the model operates at a "char" or "word" level
-LOG_WANDB = False
+LEVEL = "word"              # whether the model operates at a "char" or "word" level
+LOG_WANDB = True
 SEED = None
 SAVE_EVERY = 1              # Save every X epochs (aside from best model)
-LOG_ITER = 500              # Log every X steps
+LOG_ITER = 50              # Log every X steps
 
 # Model Parameters
 LEARNING_RATE = 0.0005      # in wlm github it's 20??
-N_EPOCHS = 30           # Number of epochs
+N_EPOCHS = 100              # Number of epochs
 HIDDEN_SIZE = 128           # Size of hidden Layer
 CRITERION = nn.NLLLoss()    # Loss function used
 CLIP = 0.25                 # Gradient clipping
@@ -61,9 +62,10 @@ if not SEED:
 torch.manual_seed(SEED)
 
 # Create directory to save models in
-SAVE_DIR = "models/names"#os.path.join(MODELS_DIR, os.path.basename(DATA_LOCATION).split(".")[0]) #
-if not os.path.exists(SAVE_DIR):
-    os.mkdir(SAVE_DIR)
+SAVE_DIR = os.path.join(MODELS_DIR, os.path.basename(DATA_LOCATION).split(".")[0]) # "models/names"#
+if os.path.exists(SAVE_DIR):
+    rmtree(SAVE_DIR)
+os.mkdir(SAVE_DIR)
 
 # Load data and split into train and test
 data = Data(DATA_LOCATION, level=LEVEL)
@@ -162,7 +164,7 @@ def main():
             train_loss = epoch_train_loss / len(train_data)
             eval_loss = epoch_eval_loss / len(train_data)
 
-            i = 0
+            
 
             if epoch % SAVE_EVERY == 0:
                 print('%s (%d %d%%) train: %.4f   eval: %.4f' % (timeSince(start), epoch, epoch / N_EPOCHS * 100, train_loss, eval_loss))
