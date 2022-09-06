@@ -18,7 +18,7 @@ from torch.utils.data import random_split
 from torch.utils.data import DataLoader
 from shutil import rmtree
 
-from data import Data
+from data import Data2
 from model import RNN
 
 # -----------------------------------------------------------------------------------------#
@@ -40,6 +40,9 @@ N_EPOCHS = 100              # Number of epochs
 HIDDEN_SIZE = 128           # Size of hidden Layer
 CRITERION = nn.NLLLoss()    # Loss function used
 CLIP = 0.25                 # Gradient clipping
+
+if torch.backends.mps.is_available() and torch.backends.mps.is_built():
+    torch.device("mps")
 
 # -----------------------------------------------------------------------------------------#
 #                                           SETUP                                          #
@@ -68,7 +71,7 @@ if os.path.exists(SAVE_DIR):
 os.mkdir(SAVE_DIR)
 
 # Load data and split into train and test
-data = Data(DATA_LOCATION, level=LEVEL)
+data = Data2(DATA_LOCATION, char=False)
 train_data, test_data = random_split(data, [round(len(data) * 0.8), round(len(data) * 0.2)])
 #train_data = data
 #test_data = data
@@ -124,8 +127,9 @@ def train(model, category_tensor, input_line_tensor, target_line_tensor):
     #torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP)
     # TODO: look into this
 
-    for p in model.parameters():
-        p.data.add_(p.grad.data, alpha = -LEARNING_RATE)
+    for p_counter, p in enumerate(model.parameters()):
+        if p.grad is not None:
+            p.data.add_(p.grad.data, alpha = -LEARNING_RATE)
     
     return output, loss.item() / input_line_tensor.size(0)
 
