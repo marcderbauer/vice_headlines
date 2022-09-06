@@ -28,7 +28,7 @@ class RNN(nn.Module):
 
 
         g = glove.vectors
-        z = torch.zeros(3,50)
+        z = torch.rand(3,50) * 2-1 # random distribution between -1, 1 for SOS, EOS and UNK
         combined = torch.cat((g,z),0)
         self.embedding = nn.Embedding.from_pretrained(combined)
         self.i2h = nn.Linear(self.num_categories + glove.dim + hidden_size, hidden_size) # TODO: Could add another hidden layer h2h here
@@ -41,7 +41,7 @@ class RNN(nn.Module):
         return torch.zeros(1, self.hidden_size)
     
     def forward(self, category, word, hidden):
-        embedded = self.embedding(torch.nonzero(word))[0] # TODO: Simplify the data structure. Currently encoding it as vector just to decode it again right away...
+        embedded = self.embedding(word) # TODO: Simplify the data structure. Currently encoding it as vector just to decode it again right away...
         input_combined = torch.cat((category, embedded, hidden), 1)
         # The embedding for [0][x] is the same for every x besides 0
         hidden = self.i2h(input_combined)

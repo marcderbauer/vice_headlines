@@ -130,10 +130,10 @@ class Data2(Dataset):
 
             # Read lines
             if char == True:
-                # TODO change
+                # TODO Move lowercasing here
                 lines = [line for line in readLines(filename)]
             else:
-                # TODO change
+                # TODO Move lowercasing here
                 lines = [self.tokenizer(line) for line in readLines(filename)]
             
             self.category_to_lines[category] = lines
@@ -141,6 +141,7 @@ class Data2(Dataset):
             for line in lines:
                 #words = [*words, *line] # add all words in the line to words
                 line = [word.lower() for word in line] #TODO: Shitty quickfix? Or maybe put processing here?
+                # -> lines are all uppercase (as in self.category_to_lines...)
                 self.data_lines.append(DataLine(line, category))
                 
 
@@ -156,7 +157,7 @@ class Data2(Dataset):
     def __getitem__(self, index):#-> T_co:
         item = self.data_lines[index] # TODO: replace with other structure
         category_tensor = self.categoryTensor(item.category)
-        input_line_tensor = self.inputTensor(item.content) # TODO: not a tensor anymore ->
+        input_line_tensor = self.inputTensor3(item.content) # TODO: not a tensor anymore ->
         # THis above is wrong. The input line tensor is a one hot encoding of the words in the line
         # Instead of removing it, it needs to be adjusted to return the indices of the words in GloVe
         # TODO: how does this work with the embedding layer?
@@ -204,6 +205,23 @@ class Data2(Dataset):
         # Instead of removing it, it needs to be adjusted to return the indices of the words in GloVe
         # -> get glove index
     
+    def inputTensor2(self, line):
+        """
+        Convert directly to embeddings. However, this makes it difficult to handle EOS, SOS and UNK
+        """
+        tensor = torch.zeros(len(line), 1, self.glove.dim)
+        for li in range(len(line)):
+            word = line[li]
+            tensor[li][0] = self.glove.get_vecs_by_tokens(word, lower_case_backup=True) # Removed extra dimension here
+    
+    def inputTensor3(self, line):
+        tensor = torch.zeros(len(line), 1, dtype=torch.int)
+        for li in range(len(line)):
+            word = line[li]
+            tensor[li][0] = self.get_index(word)
+        return tensor
+
+    
     def targetTensor(self, line, char = False): # TODO: Should char be handled here?
         """
         LongTensor of second letter to end (EOS) for target
@@ -242,20 +260,13 @@ class Data2(Dataset):
 if __name__ == "__main__":
     dataset = Data2("data/titles_cleaned.txt", char=False)#names/*.txt")
     #dataset.targetTensor("Greensmith")
+    dataset.inputTensor2(['Can', 'You', 'Be', 'In', 'Love', 'With', 'Two', 'People', '|', 'Kevin', 'Gates', 'Helpline'])
     dataset.__getitem__(4)
     dl = DataLoader(dataset=dataset, batch_size=None, shuffle=True, num_workers=0)
+
+
     # TODO: Due to unequal line length, batches don't work.
     #       To solve this we would need some padding / truncation
     # print(dataset.__getitem__(200))
     # print(dataset.__len__())
-
-    #TODO: This fails still
-    # for batch in dl:
-    #     pass
-    dataiter = iter(dl)
-    data = dataiter.next() # TODO
-    category, input_v, target = data
-
-    # dataiter._dataset.data_lines[dataiter._sampler_iter.__next__()]
-
 
