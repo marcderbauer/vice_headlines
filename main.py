@@ -85,6 +85,8 @@ num_tokens = data.num_words
 # TODO: look into num_layers
 model = RNN(num_tokens, HIDDEN_SIZE, num_tokens, num_layers=None, num_categories=data.num_categories)
 
+optimizer = torch.optim.Adam(params=model.parameters(), lr=LEARNING_RATE)
+
 
 
 # TRAINING
@@ -114,7 +116,7 @@ def train(model, category_tensor, input_line_tensor, target_line_tensor):
     target_line_tensor.unsqueeze_(-1) # Arranges data in a vertical tensor
     hidden = model.initHidden() # is the hidden state re-initialized every epoch?
 
-    model.zero_grad() # TODO: Is this related to dropout? Or what does this do?
+    optimizer.zero_grad() # TODO: Is this related to dropout? Or what does this do?
     loss = 0
 
     for i in range(input_line_tensor.size(0)):
@@ -127,9 +129,11 @@ def train(model, category_tensor, input_line_tensor, target_line_tensor):
     #torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP)
     # TODO: look into this
 
-    for p_counter, p in enumerate(model.parameters()):
-        if p.grad is not None:
-            p.data.add_(p.grad.data, alpha = -LEARNING_RATE)
+    optimizer.step()
+    #weights = model.embedding.weight.detach().clone().numpy()
+    # for p_counter, p in enumerate(model.parameters()):
+    #     if p.grad is not None:
+    #         p.data.add_(p.grad.data, alpha = -LEARNING_RATE)
     
     return output, loss.item() / input_line_tensor.size(0)
 
@@ -160,10 +164,12 @@ def main():
                 epoch_train_loss += train_loss
                 epoch_eval_loss += eval_loss
 
-                if LOG_WANDB and LOG_ITER and i % LOG_ITER == 0:
-                    wandb.log( {"train_loss": train_loss,
-                                "eval_loss": eval_loss})
-                    wandb.watch(model)
+                if  i % LOG_ITER == 0:
+                    if LOG_WANDB:
+                        wandb.log( {"train_loss": train_loss,
+                                    "eval_loss": eval_loss})
+                        wandb.watch(model)
+                    print('%s (%d %d%%) train: %.4f   eval: %.4f' % (timeSince(start), epoch, epoch / N_EPOCHS * 100, train_loss, eval_loss))
             
             train_loss = epoch_train_loss / len(train_data)
             eval_loss = epoch_eval_loss / len(train_data)
