@@ -7,3 +7,4 @@ data
 RNN/__pycache__/
 wandb/
 models/
+.vector_cache
