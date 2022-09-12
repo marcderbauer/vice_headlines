@@ -26,10 +26,8 @@ class RNN(nn.Module):
         ##############################
         # Worse performance could also come from the data not being linearly seperable anymore? Experiment with other layers?
 
-
-        g = glove.vectors
         z = torch.rand(3,50) * 2-1 # random distribution between -1, 1 for SOS, EOS and UNK
-        combined = torch.cat((g,z),0)
+        combined = torch.cat((glove.vectors,z),0)
         self.embedding = nn.Embedding.from_pretrained(combined)
         self.i2h = nn.Linear(self.num_categories + glove.dim + hidden_size, hidden_size) # TODO: Could add another hidden layer h2h here
         self.i2o = nn.Linear(self.num_categories + glove.dim + hidden_size, glove.dim)
@@ -41,9 +39,9 @@ class RNN(nn.Module):
         return torch.zeros(1, self.hidden_size)
     
     def forward(self, category, word, hidden):
-        embedded = self.embedding(word) # TODO: Simplify the data structure. Currently encoding it as vector just to decode it again right away...
+        embedded = self.embedding(word)
         input_combined = torch.cat((category, embedded, hidden), 1)
-        # The embedding for [0][x] is the same for every x besides 0
+        # The embedding for [0][x] is the same for every x besides 0 # TODO: check if true
         hidden = self.i2h(input_combined)
         output = self.i2o(input_combined)
         output_combined = torch.cat((hidden, output), 1)
